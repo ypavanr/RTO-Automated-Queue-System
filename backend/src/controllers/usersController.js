@@ -6,8 +6,7 @@ function sanitizeAadhaar(value) {
   }
   return digits;
 }
-
-export const createUser = async (req, res) => {
+ const createUser = async (req, res) => {
   const {
     full_name,
     aadhar_number,
@@ -96,3 +95,111 @@ export const createUser = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+function formatAadhaar(a12) {
+  const digits = String(a12 ?? "").replace(/\D/g, "").slice(0, 12);
+  return digits.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3");
+}
+
+
+ const getPendingUsers = async (req, res) => {
+  const limit = Number(req.query.limit ?? 100);
+  const offset = Number(req.query.offset ?? 0);
+
+  try {
+    const sql = `
+      WITH vc AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT vehicle_class ORDER BY vehicle_class) AS vehicle_classes
+        FROM user_vehicle_class
+        GROUP BY applicant_id
+      ),
+      dis AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT disability ORDER BY disability) AS disabilities
+        FROM disabilities
+        GROUP BY applicant_id
+      )
+      SELECT
+        u.id,
+        u.full_name,
+        u.aadhar_number,
+        u.ll_application_number,
+        u.phone,
+        COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
+        COALESCE(dis.disabilities, '{}')    AS disabilities,
+        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count
+      FROM app_user u
+      LEFT JOIN vc  ON vc.applicant_id  = u.id
+      LEFT JOIN dis ON dis.applicant_id = u.id
+      WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
+      ORDER BY disability_count DESC, u.created_at ASC
+      LIMIT $1 OFFSET $2;
+    `;
+    const r = await db.query(sql, [limit, offset]);
+
+    const rows = r.rows.map(row => ({
+      id: row.id,
+      full_name: row.full_name,
+      aadhar_number: formatAadhaar(row.aadhar_number),
+      ll_application_number: row.ll_application_number,
+      phone: row.phone,
+      vehicle_classes: row.vehicle_classes || [],
+      disabilities: row.disabilities || []
+    }));
+
+    return res.json({ count: rows.length, rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+ const getNextPendingUser = async (_req, res) => {
+  try {
+    const sql = `
+      WITH vc AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT vehicle_class ORDER BY vehicle_class) AS vehicle_classes
+        FROM user_vehicle_class
+        GROUP BY applicant_id
+      ),
+      dis AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT disability ORDER BY disability) AS disabilities
+        FROM disabilities
+        GROUP BY applicant_id
+      )
+      SELECT
+        u.id,
+        u.full_name,
+        u.aadhar_number,
+        u.ll_application_number,
+        u.phone,
+        COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
+        COALESCE(dis.disabilities, '{}')    AS disabilities,
+        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count
+      FROM app_user u
+      LEFT JOIN vc  ON vc.applicant_id  = u.id
+      LEFT JOIN dis ON dis.applicant_id = u.id
+      WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
+      ORDER BY disability_count DESC, u.created_at ASC
+      LIMIT 1;
+    `;
+    const r = await db.query(sql);
+    if (r.rows.length === 0) return res.status(404).json({ message: "No pending users" });
+
+    const u = r.rows[0];
+    return res.json({
+      id: u.id,
+      full_name: u.full_name,
+      aadhar_number: formatAadhaar(u.aadhar_number),
+      ll_application_number: u.ll_application_number,
+      phone: u.phone,
+      vehicle_classes: u.vehicle_classes || [],
+      disabilities: u.disabilities || []
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+export {createUser,getNextPendingUser,getPendingUsers}
