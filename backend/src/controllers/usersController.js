@@ -126,10 +126,12 @@ function formatAadhaar(a12) {
         u.phone,
         COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
         COALESCE(dis.disabilities, '{}')    AS disabilities,
-        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count
+        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
+        ss.slot_ts AS selected_slot_ts
       FROM app_user u
       LEFT JOIN vc  ON vc.applicant_id  = u.id
       LEFT JOIN dis ON dis.applicant_id = u.id
+      LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
       WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
       ORDER BY disability_count DESC, u.created_at ASC
       LIMIT $1 OFFSET $2;
@@ -143,7 +145,8 @@ function formatAadhaar(a12) {
       ll_application_number: row.ll_application_number,
       phone: row.phone,
       vehicle_classes: row.vehicle_classes || [],
-      disabilities: row.disabilities || []
+      disabilities: row.disabilities || [],
+      selected_slot_ts: row.selected_slot_ts 
     }));
 
     return res.json({ count: rows.length, rows });
@@ -174,16 +177,20 @@ function formatAadhaar(a12) {
         u.phone,
         COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
         COALESCE(dis.disabilities, '{}')    AS disabilities,
-        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count
+        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
+        ss.slot_ts AS selected_slot_ts
       FROM app_user u
       LEFT JOIN vc  ON vc.applicant_id  = u.id
       LEFT JOIN dis ON dis.applicant_id = u.id
+      LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
       WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
       ORDER BY disability_count DESC, u.created_at ASC
       LIMIT 1;
     `;
     const r = await db.query(sql);
-    if (r.rows.length === 0) return res.status(404).json({ message: "No pending users" });
+    if (r.rows.length === 0) {
+      return res.status(404).json({ message: "No pending users" });
+    }
 
     const u = r.rows[0];
     return res.json({
@@ -193,7 +200,8 @@ function formatAadhaar(a12) {
       ll_application_number: u.ll_application_number,
       phone: u.phone,
       vehicle_classes: u.vehicle_classes || [],
-      disabilities: u.disabilities || []
+      disabilities: u.disabilities || [],
+      selected_slot_ts: u.selected_slot_ts 
     });
   } catch (err) {
     console.error(err);

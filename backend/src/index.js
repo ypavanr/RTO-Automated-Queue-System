@@ -4,6 +4,7 @@ import db from "./DB/pg.js";
 import cors from "cors";
 import env from "dotenv";
 import usersRoutes from "./routes/usersRoutes.js";
+import slotsRouter from "./routes/slotRoutes.js";
 
 const app=express()
 env.config()
@@ -16,6 +17,7 @@ db.connect().then(()=>{
   console.log("connected to database")
 })
 app.use("/", usersRoutes);
+app.use("/",slotsRouter)
 app.listen(3000,()=>{
     console.log("server listening on port 3000")
 })
