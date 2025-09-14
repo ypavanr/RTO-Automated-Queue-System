@@ -15,6 +15,5 @@ router.get("/applications/next", getNextApplication);
 router.get("/stats/today", getTodayStats);
 router.post("/admin/otp/verify", verifyOtpAndFinishByUser);
 
-router.post("/admin/otp/reveal", revealTokenOtpToApplicant);
 
 export default router;
