@@ -102,7 +102,7 @@ function formatAadhaar(a12) {
 }
 
 
- const getPendingUsers = async (req, res) => {
+const getPendingUsers = async (req, res) => {
   const limit = Number(req.query.limit ?? 100);
   const offset = Number(req.query.offset ?? 0);
 
@@ -127,13 +127,20 @@ function formatAadhaar(a12) {
         COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
         COALESCE(dis.disabilities, '{}')    AS disabilities,
         COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
-        ss.slot_ts AS selected_slot_ts
+        ss.slot_ts AS selected_slot_ts,
+        ss.created_at AS slot_selected_at
       FROM app_user u
       LEFT JOIN vc  ON vc.applicant_id  = u.id
       LEFT JOIN dis ON dis.applicant_id = u.id
       LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
-      WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
-      ORDER BY disability_count DESC, u.created_at ASC
+      WHERE NOT EXISTS (
+        SELECT 1 FROM token t
+        WHERE t.applicant_id = u.id AND t.status = 'ACTIVE'
+      )
+      ORDER BY disability_count DESC,
+               ss.slot_ts ASC NULLS LAST,
+               ss.created_at ASC NULLS LAST,
+               u.created_at ASC
       LIMIT $1 OFFSET $2;
     `;
     const r = await db.query(sql, [limit, offset]);
@@ -146,7 +153,8 @@ function formatAadhaar(a12) {
       phone: row.phone,
       vehicle_classes: row.vehicle_classes || [],
       disabilities: row.disabilities || [],
-      selected_slot_ts: row.selected_slot_ts 
+      selected_slot_ts: row.selected_slot_ts,   
+      slot_selected_at: row.slot_selected_at   
     }));
 
     return res.json({ count: rows.length, rows });
@@ -156,7 +164,7 @@ function formatAadhaar(a12) {
   }
 };
 
- const getNextPendingUser = async (_req, res) => {
+const getNextPendingUser = async (_req, res) => {
   try {
     const sql = `
       WITH vc AS (
@@ -178,19 +186,24 @@ function formatAadhaar(a12) {
         COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
         COALESCE(dis.disabilities, '{}')    AS disabilities,
         COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
-        ss.slot_ts AS selected_slot_ts
+        ss.slot_ts AS selected_slot_ts,
+        ss.created_at AS slot_selected_at
       FROM app_user u
       LEFT JOIN vc  ON vc.applicant_id  = u.id
       LEFT JOIN dis ON dis.applicant_id = u.id
       LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
-      WHERE NOT EXISTS (SELECT 1 FROM token t WHERE t.applicant_id = u.id)
-      ORDER BY disability_count DESC, u.created_at ASC
+      WHERE NOT EXISTS (
+        SELECT 1 FROM token t
+        WHERE t.applicant_id = u.id AND t.status = 'ACTIVE'
+      )
+      ORDER BY disability_count DESC,
+               ss.slot_ts ASC NULLS LAST,
+               ss.created_at ASC NULLS LAST,
+               u.created_at ASC
       LIMIT 1;
     `;
     const r = await db.query(sql);
-    if (r.rows.length === 0) {
-      return res.status(404).json({ message: "No pending users" });
-    }
+    if (r.rows.length === 0) return res.status(404).json({ message: "No pending users" });
 
     const u = r.rows[0];
     return res.json({
@@ -201,7 +214,8 @@ function formatAadhaar(a12) {
       phone: u.phone,
       vehicle_classes: u.vehicle_classes || [],
       disabilities: u.disabilities || [],
-      selected_slot_ts: u.selected_slot_ts 
+      selected_slot_ts: u.selected_slot_ts,
+      slot_selected_at: u.slot_selected_at
     });
   } catch (err) {
     console.error(err);
