@@ -223,5 +223,39 @@ const getNextPendingUser = async (_req, res) => {
   }
 };
 
+import db from "../DB/pg.js";
 
-export {createUser,getNextPendingUser,getPendingUsers}
+ const getUserOtp = async (req, res) => {
+  const userId = Number(req.params.user_id ?? req.body?.user_id);
+  if (!userId) return res.status(400).json({ error: "user_id is required" });
+
+  try {
+    const r = await db.query(
+      `SELECT id AS token_id, otp_code
+         FROM token
+        WHERE applicant_id = $1
+          AND status = 'ACTIVE'
+        ORDER BY (finish_requested_at IS NOT NULL) DESC,  -- prefer ones where OTP was requested
+                 finish_requested_at DESC NULLS LAST,
+                 created_at DESC
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (!r.rows.length) {
+      return res.status(404).json({ error: "Active token not found for this user" });
+    }
+    const { token_id, otp_code } = r.rows[0];
+    if (!otp_code) {
+      return res.status(404).json({ error: "OTP not set for this token" });
+    }
+
+    return res.json({ user_id: userId, token_id, otp: String(otp_code) });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+export {createUser,getUserOtp}

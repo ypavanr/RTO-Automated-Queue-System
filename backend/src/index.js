@@ -5,6 +5,8 @@ import cors from "cors";
 import env from "dotenv";
 import usersRoutes from "./routes/usersRoutes.js";
 import slotsRouter from "./routes/slotRoutes.js";
+import tokensRoutes from "./routes/tokensRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app=express()
 env.config()
@@ -18,6 +20,9 @@ db.connect().then(()=>{
 })
 app.use("/", usersRoutes);
 app.use("/",slotsRouter)
+app.use("/", tokensRoutes);
+app.use("/", adminRoutes);
+
 app.listen(3000,()=>{
     console.log("server listening on port 3000")
 })
