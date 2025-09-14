@@ -223,26 +223,24 @@ export const verifyOtpAndFinishByUser = async (req, res) => {
   if (!user_id || !otp) {
     return res.status(400).json({ error: "user_id and otp are required" });
   }
+  if (!/^\d{6}$/.test(String(otp))) {
+    return res.status(400).json({ error: "OTP must be a 6-digit code" });
+  }
 
   try {
     const r = await db.query(
-      `SELECT id, status, otp_code, otp_expires_at
+      `SELECT id, otp_code
          FROM token
         WHERE applicant_id=$1 AND status='ACTIVE'
-        ORDER BY created_at DESC
+        ORDER BY (finish_requested_at IS NOT NULL) DESC,
+                 finish_requested_at DESC NULLS LAST,
+                 created_at DESC
         LIMIT 1`,
       [user_id]
     );
     if (!r.rows.length) return res.status(404).json({ error: "Active token not found" });
+
     const t = r.rows[0];
-
-    if (!t.otp_code || !t.otp_expires_at) {
-      return res.status(400).json({ error: "OTP not requested" });
-    }
-    if (new Date() > new Date(t.otp_expires_at)) {
-      return res.status(400).json({ error: "OTP expired" });
-    }
-
     if (String(otp) !== String(t.otp_code)) {
       return res.status(401).json({ error: "Invalid OTP" });
     }
@@ -254,7 +252,6 @@ export const verifyOtpAndFinishByUser = async (req, res) => {
         WHERE id = $1`,
       [t.id]
     );
-
 
     const c = await db.query(
       `SELECT COUNT(*)::int AS finished_today

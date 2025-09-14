@@ -48,7 +48,7 @@ export const issueToken = async (req, res) => {
     const otp = generate6DigitOtp(); 
 
     const ins = await db.query(
-      `INSERT INTO token (applicant_id, token_no, status, slot_ts, is_priority, otp_code)
+      `INSERT INTO token (applicant_id, token_no, status, slot_ts, is_priority, otp_code_hash)
        VALUES ($1,$2,'ACTIVE',$3,$4,$5)
        RETURNING *`,
       [applicant_id, code, slotTs, isPriority, otp]

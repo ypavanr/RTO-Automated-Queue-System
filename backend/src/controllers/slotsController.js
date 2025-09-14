@@ -43,4 +43,67 @@ import db from "../DB/pg.js";
 };
 
 
-export {selectTimeSlot}
+ const getSlotsAvailability = async (req, res) => {
+  const from = req.query.from;
+  const to = req.query.to;
+  if (!from || !to) return res.status(400).json({ error: "from and to are required (ISO)" });
+
+  try {
+    const r = await db.query(
+      `SELECT slot_ts,
+              COUNT(*)::int AS count,
+              GREATEST(5-COUNT(*),0)::int AS remaining
+         FROM slot_selection
+        WHERE slot_ts >= $1 AND slot_ts < $2
+        GROUP BY slot_ts
+        ORDER BY slot_ts`,
+      [from, to]
+    );
+    return res.json(r.rows);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+ const getSlotQueue = async (req, res) => {
+  const slot_ts = req.query.slot_ts;
+  if (!slot_ts) return res.status(400).json({ error: "slot_ts is required" });
+
+  try {
+    const sql = `
+      WITH vc AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT vehicle_class ORDER BY vehicle_class) AS vehicle_classes
+        FROM user_vehicle_class GROUP BY applicant_id
+      ),
+      dis AS (
+        SELECT applicant_id, ARRAY_AGG(DISTINCT disability ORDER BY disability) AS disabilities
+        FROM disabilities GROUP BY applicant_id
+      )
+      SELECT
+        t.id AS token_id, t.token_no, t.status, t.is_priority, t.slot_ts,
+        u.id AS user_id, u.full_name, u.aadhar_number, u.ll_application_number, u.phone,
+        COALESCE(vc.vehicle_classes,'{}') AS vehicle_classes,
+        COALESCE(dis.disabilities,'{}')   AS disabilities,
+        COALESCE(ss.created_at, t.created_at) AS slot_selected_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY t.slot_ts
+          ORDER BY t.is_priority DESC, COALESCE(ss.created_at,t.created_at) ASC, t.created_at ASC
+        ) AS rank_in_slot
+      FROM token t
+      JOIN app_user u ON u.id=t.applicant_id
+      LEFT JOIN slot_selection ss ON ss.applicant_id=u.id AND ss.slot_ts=t.slot_ts
+      LEFT JOIN vc ON vc.applicant_id=u.id
+      LEFT JOIN dis ON dis.applicant_id=u.id
+      WHERE t.slot_ts=$1 AND t.status='ACTIVE'
+      ORDER BY rank_in_slot;
+    `;
+    const r = await db.query(sql, [slot_ts]);
+    return res.json({ count: r.rowCount, rows: r.rows });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+export {selectTimeSlot,getSlotsAvailability,getSlotQueue}
