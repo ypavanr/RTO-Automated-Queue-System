@@ -96,134 +96,8 @@ function sanitizeAadhaar(value) {
   }
 };
 
-function formatAadhaar(a12) {
-  const digits = String(a12 ?? "").replace(/\D/g, "").slice(0, 12);
-  return digits.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3");
-}
 
 
-const getPendingUsers = async (req, res) => {
-  const limit = Number(req.query.limit ?? 100);
-  const offset = Number(req.query.offset ?? 0);
-
-  try {
-    const sql = `
-      WITH vc AS (
-        SELECT applicant_id, ARRAY_AGG(DISTINCT vehicle_class ORDER BY vehicle_class) AS vehicle_classes
-        FROM user_vehicle_class
-        GROUP BY applicant_id
-      ),
-      dis AS (
-        SELECT applicant_id, ARRAY_AGG(DISTINCT disability ORDER BY disability) AS disabilities
-        FROM disabilities
-        GROUP BY applicant_id
-      )
-      SELECT
-        u.id,
-        u.full_name,
-        u.aadhar_number,
-        u.ll_application_number,
-        u.phone,
-        COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
-        COALESCE(dis.disabilities, '{}')    AS disabilities,
-        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
-        ss.slot_ts AS selected_slot_ts,
-        ss.created_at AS slot_selected_at
-      FROM app_user u
-      LEFT JOIN vc  ON vc.applicant_id  = u.id
-      LEFT JOIN dis ON dis.applicant_id = u.id
-      LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
-      WHERE NOT EXISTS (
-        SELECT 1 FROM token t
-        WHERE t.applicant_id = u.id AND t.status = 'ACTIVE'
-      )
-      ORDER BY disability_count DESC,
-               ss.slot_ts ASC NULLS LAST,
-               ss.created_at ASC NULLS LAST,
-               u.created_at ASC
-      LIMIT $1 OFFSET $2;
-    `;
-    const r = await db.query(sql, [limit, offset]);
-
-    const rows = r.rows.map(row => ({
-      id: row.id,
-      full_name: row.full_name,
-      aadhar_number: formatAadhaar(row.aadhar_number),
-      ll_application_number: row.ll_application_number,
-      phone: row.phone,
-      vehicle_classes: row.vehicle_classes || [],
-      disabilities: row.disabilities || [],
-      selected_slot_ts: row.selected_slot_ts,   
-      slot_selected_at: row.slot_selected_at   
-    }));
-
-    return res.json({ count: rows.length, rows });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-const getNextPendingUser = async (_req, res) => {
-  try {
-    const sql = `
-      WITH vc AS (
-        SELECT applicant_id, ARRAY_AGG(DISTINCT vehicle_class ORDER BY vehicle_class) AS vehicle_classes
-        FROM user_vehicle_class
-        GROUP BY applicant_id
-      ),
-      dis AS (
-        SELECT applicant_id, ARRAY_AGG(DISTINCT disability ORDER BY disability) AS disabilities
-        FROM disabilities
-        GROUP BY applicant_id
-      )
-      SELECT
-        u.id,
-        u.full_name,
-        u.aadhar_number,
-        u.ll_application_number,
-        u.phone,
-        COALESCE(vc.vehicle_classes, '{}') AS vehicle_classes,
-        COALESCE(dis.disabilities, '{}')    AS disabilities,
-        COALESCE(array_length(dis.disabilities, 1), 0) AS disability_count,
-        ss.slot_ts AS selected_slot_ts,
-        ss.created_at AS slot_selected_at
-      FROM app_user u
-      LEFT JOIN vc  ON vc.applicant_id  = u.id
-      LEFT JOIN dis ON dis.applicant_id = u.id
-      LEFT JOIN slot_selection ss ON ss.applicant_id = u.id
-      WHERE NOT EXISTS (
-        SELECT 1 FROM token t
-        WHERE t.applicant_id = u.id AND t.status = 'ACTIVE'
-      )
-      ORDER BY disability_count DESC,
-               ss.slot_ts ASC NULLS LAST,
-               ss.created_at ASC NULLS LAST,
-               u.created_at ASC
-      LIMIT 1;
-    `;
-    const r = await db.query(sql);
-    if (r.rows.length === 0) return res.status(404).json({ message: "No pending users" });
-
-    const u = r.rows[0];
-    return res.json({
-      id: u.id,
-      full_name: u.full_name,
-      aadhar_number: formatAadhaar(u.aadhar_number),
-      ll_application_number: u.ll_application_number,
-      phone: u.phone,
-      vehicle_classes: u.vehicle_classes || [],
-      disabilities: u.disabilities || [],
-      selected_slot_ts: u.selected_slot_ts,
-      slot_selected_at: u.slot_selected_at
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-import db from "../DB/pg.js";
 
  const getUserOtp = async (req, res) => {
   const userId = Number(req.params.user_id ?? req.body?.user_id);
@@ -258,4 +132,72 @@ import db from "../DB/pg.js";
 };
 
 
-export {createUser,getUserOtp}
+ const cancelApplication = async (req, res) => {
+  const { aadhar_number, token_no } = req.body || {};
+  if (!aadhar_number || !token_no) {
+    return res.status(400).json({ error: "aadhar_number and token_no are required" });
+  }
+
+  let aadhaar;
+  try {
+    aadhaar = sanitizeAadhaar(aadhar_number);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  try {
+    const u = await db.query(
+      `SELECT id, full_name FROM app_user WHERE aadhar_number = $1`,
+      [aadhaar]
+    );
+    if (!u.rows.length) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = u.rows[0].id;
+
+    const t = await db.query(
+      `SELECT id, token_no, status, slot_ts
+         FROM token
+        WHERE applicant_id = $1
+          AND token_no = $2
+          AND status = 'ACTIVE'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [userId, token_no]
+    );
+    if (!t.rows.length) {
+      return res.status(404).json({ error: "Active token not found for this user/token_no" });
+    }
+    const token = t.rows[0];
+
+    const upd = await db.query(
+      `UPDATE token
+          SET status = 'CANCELLED'
+        WHERE id = $1 AND status = 'ACTIVE'
+        RETURNING id, token_no, slot_ts, status`,
+      [token.id]
+    );
+    if (!upd.rows.length) {
+      return res.status(409).json({ error: "Token is not ACTIVE or was already updated" });
+    }
+    const cancelled = upd.rows[0];
+
+    const del = await db.query(
+      `DELETE FROM slot_selection
+        WHERE applicant_id = $1 AND slot_ts = $2
+        RETURNING id`,
+      [userId, token.slot_ts]
+    );
+
+    return res.status(200).json({
+      message: "Application cancelled",
+      token: cancelled,
+      slot_selection_deleted: del.rowCount > 0
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+export {createUser,getUserOtp,cancelApplication}
