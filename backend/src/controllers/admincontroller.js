@@ -229,7 +229,7 @@ export const verifyOtpAndFinishByUser = async (req, res) => {
 
   try {
     const r = await db.query(
-      `SELECT id, otp_code
+      `SELECT id, otp_code_hash AS otp_code
          FROM token
         WHERE applicant_id=$1 AND status='ACTIVE'
         ORDER BY (finish_requested_at IS NOT NULL) DESC,
@@ -264,6 +264,24 @@ export const verifyOtpAndFinishByUser = async (req, res) => {
       message: "Finished",
       finished_today: c.rows[0].finished_today
     });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+export const getTodayStats = async (req, res) => {
+  try {
+    const stats = await db.query(
+      `SELECT
+         SUM(CASE WHEN status = 'ACTIVE'    THEN 1 ELSE 0 END)::int    AS active_today,
+         SUM(CASE WHEN status = 'FINISHED'  THEN 1 ELSE 0 END)::int    AS finished_today,
+         SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END)::int    AS cancelled_today,
+         COUNT(*)::int                                              AS total_today
+       FROM token
+       WHERE slot_local_date = ((now() AT TIME ZONE 'Asia/Kolkata')::date)`
+    );
+
+    return res.json(stats.rows[0]);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Server error" });

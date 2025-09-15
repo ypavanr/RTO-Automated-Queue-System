@@ -105,7 +105,7 @@ function sanitizeAadhaar(value) {
 
   try {
     const r = await db.query(
-      `SELECT id AS token_id, otp_code
+      `SELECT id AS token_id,otp_code_hash AS otp_code
          FROM token
         WHERE applicant_id = $1
           AND status = 'ACTIVE'
