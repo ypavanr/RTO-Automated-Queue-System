@@ -13,7 +13,7 @@ env.config()
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors({
-    origin:process.env.CORS_ORIGIN_URL
+    origin:'*'
 }));
 db.connect().then(()=>{
   console.log("connected to database")
