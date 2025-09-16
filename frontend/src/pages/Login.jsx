@@ -25,13 +25,15 @@ export default function Login({ onLogin }) {
 
       console.log("Login success:", res.data);
 
-      // Store user id for downstream API calls (slots, tokens, etc.)
-      if (res.data?.user?.id) {
+      // Store full user object including is_admin
+      if (res.data?.user) {
+        localStorage.setItem("user", JSON.stringify(res.data.user));
         localStorage.setItem("user_id", String(res.data.user.id));
       }
 
-      onLogin(); // let parent know user is logged in
-      navigate("/book"); // redirect
+      onLogin();
+      const isAdmin = !!res.data?.user?.is_admin;
+      navigate(isAdmin ? "/admin" : "/book");
     } catch (err) {
       console.error(err);
       setError("❌ Invalid phone or password");

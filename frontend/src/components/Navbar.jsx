@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 export default function Navbar({ isLoggedIn, setIsLoggedIn }) {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const handleLogout = () => {
     setIsLoggedIn(false); // reset login state
@@ -21,7 +22,7 @@ export default function Navbar({ isLoggedIn, setIsLoggedIn }) {
 
         {isLoggedIn && <Link to="/book">Book Slot</Link>}
         {isLoggedIn && <Link to="/token">My Token</Link>}
-        {isLoggedIn && <Link to="/admin">Admin</Link>}
+        {isLoggedIn && user?.is_admin && <Link to="/admin">Admin</Link>}
 
         {isLoggedIn && (
           <button

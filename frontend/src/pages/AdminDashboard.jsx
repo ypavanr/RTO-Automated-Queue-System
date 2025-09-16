@@ -8,6 +8,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null);
 
   const base = process.env.REACT_APP_API_BASE || "";
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   const fetchApplications = async () => {
     setLoading(true);
@@ -15,6 +16,7 @@ export default function AdminDashboard() {
     try {
       const r = await axios.get(`${base}/applications`, {
         params: { status: "ACTIVE", limit: 500 },
+        headers: { "x-user-id": user?.id },
       });
       setRows(r.data?.rows || []);
     } catch (e) {
@@ -32,7 +34,7 @@ export default function AdminDashboard() {
 
   const handleRevealOtp = async (userId) => {
     try {
-      await axios.post(`${base}/admin/otp/reveal`, { user_id: userId });
+      await axios.post(`${base}/admin/otp/reveal`, { user_id: userId }, { headers: { "x-user-id": user?.id } });
       const g = await axios.get(`${base}/users/${userId}/otp`);
       const otp = g.data?.otp;
       setOtpMap((m) => ({ ...m, [userId]: otp }));
@@ -47,7 +49,7 @@ export default function AdminDashboard() {
     const otp = window.prompt("Enter OTP to verify:");
     if (!otp) return;
     try {
-      await axios.post(`${base}/admin/otp/verify`, { user_id: userId, otp: String(otp) });
+      await axios.post(`${base}/admin/otp/verify`, { user_id: userId, otp: String(otp) }, { headers: { "x-user-id": user?.id } });
       alert("Verified and finished");
       await fetchApplications();
     } catch (e) {

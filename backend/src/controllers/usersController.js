@@ -210,7 +210,7 @@ export const loginUser = async (req, res) => {
 
   try {
     const r = await db.query(
-      `SELECT id, full_name, aadhar_number, ll_application_number, phone
+      `SELECT id, full_name, aadhar_number, ll_application_number, phone, is_admin
          FROM app_user
         WHERE phone = $1
         LIMIT 1`,

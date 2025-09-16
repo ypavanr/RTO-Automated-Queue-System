@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS app_user (
   aadhar_number         CHAR(12) NOT NULL CHECK (aadhar_number ~ '^[0-9]{12}$'),
   ll_application_number TEXT NOT NULL,
   phone                 TEXT,
+  is_admin              BOOLEAN NOT NULL DEFAULT FALSE,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (aadhar_number),
   UNIQUE (ll_application_number)

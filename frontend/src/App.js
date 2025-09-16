@@ -29,10 +29,14 @@ function App() {
           element={isLoggedIn ? <MyToken /> : <Navigate to="/login" />}
         />
 
-        {/* Protected admin route */}
+        {/* Protected admin route: requires logged-in AND is_admin */}
         <Route
           path="/admin"
-          element={isLoggedIn ? <AdminDashboard /> : <Navigate to="/login" />}
+          element={
+            isLoggedIn && JSON.parse(localStorage.getItem("user") || "null")?.is_admin
+              ? <AdminDashboard />
+              : <Navigate to="/" />
+          }
         />
 
         {/* Catch-all: redirect unknown routes to home */}
