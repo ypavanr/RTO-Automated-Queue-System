@@ -87,6 +87,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_token_per_applicant_slot
   ON token(applicant_id, slot_ts)
   WHERE status = 'ACTIVE';
 
+-- Ensure only one ACTIVE token per user globally (any slot)
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_token_per_applicant
+  ON token(applicant_id)
+  WHERE status = 'ACTIVE';
+
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_tokenno_per_slot
   ON token(slot_ts, token_no);
 

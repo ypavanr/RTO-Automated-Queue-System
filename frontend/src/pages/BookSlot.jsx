@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -7,6 +7,23 @@ export default function BookSlot() {
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
   const [error, setError] = useState("");
+
+  // Pre-check: redirect if an active token already exists
+  useEffect(() => {
+    const run = async () => {
+      const userId = localStorage.getItem("user_id");
+      if (!userId) return;
+      try {
+        const base = process.env.REACT_APP_API_BASE || "";
+        const r = await axios.get(`${base}/tokens/active`, { params: { user_id: Number(userId) } });
+        if (r?.data?.token_id) navigate("/already-booked", { replace: true });
+      } catch (e) {
+        // 404 => no active token
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Generate slots dynamically
   const generateSlots = () => {
@@ -77,6 +94,10 @@ export default function BookSlot() {
       navigate("/token");
     } catch (err) {
       console.error(err);
+      if (err?.response?.status === 409) {
+        navigate("/already-booked", { replace: true });
+        return;
+      }
       setError("Failed to book slot or issue token");
     }
   };

@@ -18,6 +18,15 @@ import db from "../DB/pg.js";
       return res.status(404).json({ error: "Applicant not found" });
     }
 
+    // If an ACTIVE token exists for this user, block booking another slot
+    const hasActiveToken = await db.query(
+      `SELECT 1 FROM token WHERE applicant_id = $1 AND status = 'ACTIVE' LIMIT 1`,
+      [applicant_id]
+    );
+    if (hasActiveToken.rows.length) {
+      return res.status(409).json({ error: "You have already booked. Active token exists." });
+    }
+
     const sql = `
       INSERT INTO slot_selection (applicant_id, slot_ts)
       VALUES ($1, $2)

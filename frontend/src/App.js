@@ -7,6 +7,7 @@ import BookSlot from "./pages/BookSlot";
 import MyToken from "./pages/MyToken";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
+import AlreadyBooked from "./pages/AlreadyBooked";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -28,6 +29,8 @@ function App() {
           path="/token"
           element={isLoggedIn ? <MyToken /> : <Navigate to="/login" />}
         />
+
+        <Route path="/already-booked" element={<AlreadyBooked />} />
 
         {/* Protected admin route: requires logged-in AND is_admin */}
         <Route

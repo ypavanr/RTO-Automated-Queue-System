@@ -3,13 +3,16 @@ import bodyParser from "body-parser";
 import db from "./DB/pg.js";
 import cors from "cors";
 import env from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import usersRoutes from "./routes/usersRoutes.js";
 import slotsRouter from "./routes/slotRoutes.js";
 import tokensRoutes from "./routes/tokensRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 
 const app=express()
-env.config()
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+env.config({ path: path.join(__dirname, "../.env") });
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors({

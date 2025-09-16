@@ -21,6 +21,15 @@ export const issueToken = async (req, res) => {
     const u = await db.query(`SELECT id FROM app_user WHERE id=$1`, [applicant_id]);
     if (!u.rows.length) return res.status(404).json({ error: "Applicant not found" });
 
+    // Block issuing if any ACTIVE token already exists for this user
+    const active = await db.query(
+      `SELECT 1 FROM token WHERE applicant_id=$1 AND status='ACTIVE' LIMIT 1`,
+      [applicant_id]
+    );
+    if (active.rows.length) {
+      return res.status(409).json({ error: "Active token already exists for this user" });
+    }
+
     const sel = await db.query(
       `SELECT slot_ts FROM slot_selection WHERE applicant_id=$1`,
       [applicant_id]
