@@ -287,3 +287,44 @@ export const getTodayStats = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+export const revealOtpToUser = async (req, res) => {
+  const { user_id } = req.body || {};
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+
+  try {
+    const r = await db.query(
+      `SELECT id
+         FROM token
+        WHERE applicant_id = $1 AND status = 'ACTIVE'
+        ORDER BY (finish_requested_at IS NOT NULL) DESC,
+                 finish_requested_at DESC NULLS LAST,
+                 created_at DESC
+        LIMIT 1`,
+      [user_id]
+    );
+    if (!r.rows.length) {
+      return res.status(404).json({ error: "Active token not found" });
+    }
+
+    const tokenId = r.rows[0].id;
+    const upd = await db.query(
+      `UPDATE token
+          SET finish_requested_at = COALESCE(finish_requested_at, now())
+        WHERE id = $1
+        RETURNING finish_requested_at`,
+      [tokenId]
+    );
+
+    if (!upd.rows.length) {
+      return res.status(500).json({ error: "Could not mark OTP requested" });
+    }
+
+    return res.json({ message: "OTP sent to applicant" });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};

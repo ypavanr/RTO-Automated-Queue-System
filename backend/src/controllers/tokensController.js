@@ -74,3 +74,32 @@ export const issueToken = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+export const getActiveTokenForUser = async (req, res) => {
+  const userId = Number(req.query.user_id ?? req.params.user_id);
+  if (!userId) return res.status(400).json({ error: "user_id is required" });
+
+  try {
+    const r = await db.query(
+      `SELECT id AS token_id, token_no, status, slot_ts, otp_code_hash AS otp_code
+         FROM token
+        WHERE applicant_id = $1 AND status = 'ACTIVE'
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [userId]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Active token not found" });
+
+    const t = r.rows[0];
+    return res.json({
+      token_id: t.token_id,
+      token_no: t.token_no,
+      status: t.status,
+      slot_ts: t.slot_ts,
+      otp: t.otp_code ? String(t.otp_code) : null
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};

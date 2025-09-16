@@ -201,3 +201,50 @@ function sanitizeAadhaar(value) {
 };
 
 export {createUser,getUserOtp,cancelApplication}
+
+export const loginUser = async (req, res) => {
+  const { phone, password } = req.body || {};
+  if (!phone || !password) {
+    return res.status(400).json({ error: "phone and password are required" });
+  }
+
+  try {
+    const r = await db.query(
+      `SELECT id, full_name, aadhar_number, ll_application_number, phone
+         FROM app_user
+        WHERE phone = $1
+        LIMIT 1`,
+      [phone]
+    );
+    if (!r.rows.length) {
+      return res.status(401).json({ error: "Invalid phone or password" });
+    }
+    return res.json({ message: "Login successful", user: r.rows[0] });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const getPendingUsers = async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT u.full_name, u.aadhar_number
+         FROM token t
+         JOIN app_user u ON u.id = t.applicant_id
+        WHERE t.status = 'ACTIVE'
+          AND t.slot_local_date = ((now() AT TIME ZONE 'Asia/Kolkata')::date)
+        ORDER BY t.created_at ASC`
+    );
+
+    const rows = r.rows.map((row) => ({
+      name: row.full_name,
+      aadharNumber: row.aadhar_number,
+    }));
+
+    return res.json(rows);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
+};

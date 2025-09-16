@@ -20,12 +20,15 @@ export default function Login({ onLogin }) {
 
     try {
       // ✅ Call backend API
-      const res = await axios.post("http://localhost:3000/login", credentials);
+      const base = process.env.REACT_APP_API_BASE || "";
+      const res = await axios.post(`${base}/login`, credentials);
 
       console.log("Login success:", res.data);
 
-      // If backend returns a token/user, you can store it in localStorage/session
-      // localStorage.setItem("token", res.data.token);
+      // Store user id for downstream API calls (slots, tokens, etc.)
+      if (res.data?.user?.id) {
+        localStorage.setItem("user_id", String(res.data.user.id));
+      }
 
       onLogin(); // let parent know user is logged in
       navigate("/book"); // redirect

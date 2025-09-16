@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function BookSlot() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function BookSlot() {
   };
 
   // Handle Submit
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!date) {
@@ -60,11 +61,24 @@ export default function BookSlot() {
 
     setError("");
 
-    // Save booking info
-    localStorage.setItem("bookedDate", date);
-    localStorage.setItem("bookedSlot", slot);
+    const userId = localStorage.getItem("user_id");
+    if (!userId) {
+      setError("Please login first");
+      return;
+    }
 
-    navigate("/token");
+    try {
+      const base = process.env.REACT_APP_API_BASE || "";
+      const slotTs = new Date(`${date}T${slot}:00+05:30`).toISOString();
+      await axios.post(`${base}/slots`, { applicant_id: Number(userId), slot_ts: slotTs });
+      await axios.post(`${base}/tokens/issue`, { applicant_id: Number(userId), prefix: "T" });
+      localStorage.setItem("bookedDate", date);
+      localStorage.setItem("bookedSlot", slot);
+      navigate("/token");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to book slot or issue token");
+    }
   };
 
   // Generate min/max date for input

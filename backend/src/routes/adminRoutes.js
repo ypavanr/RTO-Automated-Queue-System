@@ -3,8 +3,9 @@ import {
   getApplications,
   getNextApplication,
   verifyOtpAndFinishByUser,
-getTodayStats}
-  from "../controllers/admincontroller.js"
+  getTodayStats,
+  revealOtpToUser
+} from "../controllers/admincontroller.js"
 
 
 
@@ -14,6 +15,7 @@ router.get("/applications", getApplications);
 router.get("/applications/next", getNextApplication);
 router.get("/stats/today", getTodayStats);
 router.post("/admin/otp/verify", verifyOtpAndFinishByUser);
+router.post("/admin/otp/reveal", revealOtpToUser);
 
 
 export default router;
