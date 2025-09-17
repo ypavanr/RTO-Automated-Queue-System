@@ -44,7 +44,7 @@ export default function Login({ onLogin }) {
 
       if (typeof onLogin === "function") onLogin();
       const isAdmin = !!res.data?.user?.is_admin;
-      navigate(isAdmin ? "/admin" : "/book-slot");
+      navigate(isAdmin ? "/admin" : "/book");
     } catch (err) {
       console.error(err);
       setError("❌ Invalid phone or password");

@@ -26,7 +26,7 @@ export default function Navbar({ isLoggedIn, setIsLoggedIn }) {
   const navLinkClass = ({ isActive }) =>
     `px-3 py-2 rounded-lg text-sm font-medium transition ${
       isActive
-        ? "bg-white/20 text-white shadow-sm"
+        ? "bg-wh  ite/20 text-white shadow-sm"
         : "text-white/90 hover:bg-white/10"
     }`;
 

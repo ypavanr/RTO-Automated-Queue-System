@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Register from "./pages/Register";
-import BookSlot from "./pages/BookSlot";
+import BookSlotGate from "./pages/BookSlotGate";
 import MyToken from "./pages/MyToken";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
@@ -23,7 +23,7 @@ function App() {
         {/* Protected routes for logged-in users */}
         <Route
           path="/book"
-          element={isLoggedIn ? <BookSlot /> : <Navigate to="/login" />}
+          element={isLoggedIn ? <BookSlotGate /> : <Navigate to="/login" />}
         />
         
         
