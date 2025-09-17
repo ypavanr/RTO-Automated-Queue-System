@@ -4,6 +4,7 @@ import db from "./DB/pg.js";
 import cors from "cors";
 import env from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import usersRoutes from "./routes/usersRoutes.js";
 import slotsRouter from "./routes/slotRoutes.js";
@@ -18,9 +19,25 @@ app.use(bodyParser.json());
 app.use(cors({
     origin:'*'
 }));
-db.connect().then(()=>{
-  console.log("connected to database")
-})
+async function ensureSchema() {
+  try {
+    const schemaPath = path.join(__dirname, "DB", "schema.sql");
+    const sql = fs.readFileSync(schemaPath, "utf8");
+    await db.query(sql);
+    console.log("database schema ensured");
+  } catch (e) {
+    console.error("failed to apply schema:", e);
+  }
+}
+
+db.connect()
+  .then(async () => {
+    console.log("connected to database");
+    await ensureSchema();
+  })
+  .catch((e) => {
+    console.error("database connection error", e);
+  });
 app.use("/", usersRoutes);
 app.use("/",slotsRouter)
 app.use("/", tokensRoutes);

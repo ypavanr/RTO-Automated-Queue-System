@@ -54,7 +54,7 @@ CREATE DATABASE rto_queue_system;
 
 ### 3. Backend Setup
 ```bash
-cd backend
+   cd backend
 npm install
 cp .env.example .env
 # Edit .env with your database credentials

@@ -25,7 +25,9 @@ function App() {
           path="/book"
           element={isLoggedIn ? <BookSlot /> : <Navigate to="/login" />}
         />
-        <Route
+        
+        
+                <Route
           path="/token"
           element={isLoggedIn ? <MyToken /> : <Navigate to="/login" />}
         />
